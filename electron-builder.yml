@@ -1,0 +1,44 @@
+appId: com.nexuside.app
+productName: NexusIDE
+copyright: Copyright © 2025 NexusIDE
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**/*
+  - package.json
+
+asarUnpack:
+  - node_modules/better-sqlite3/**
+  - node_modules/node-pty/**
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: NexusIDE-${version}-Setup.exe
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  artifactName: NexusIDE-${version}.dmg
+  category: public.app-category.developer-tools
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  artifactName: NexusIDE-${version}.AppImage
+  category: Development
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always

@@ -1,0 +1,76 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "▶ NexusIDE — Dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "focus": false,
+        "showReuseMessage": false
+      },
+      "problemMatcher": [],
+      "icon": {
+        "id": "play",
+        "color": "terminal.ansiGreen"
+      }
+    },
+    {
+      "label": "🔨 NexusIDE — Build",
+      "type": "shell",
+      "command": "npm run build",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": [],
+      "icon": {
+        "id": "package",
+        "color": "terminal.ansiBlue"
+      }
+    },
+    {
+      "label": "📦 NexusIDE — Package (installer)",
+      "type": "shell",
+      "command": "npm run package",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": [],
+      "icon": {
+        "id": "archive",
+        "color": "terminal.ansiYellow"
+      }
+    },
+    {
+      "label": "🔍 NexusIDE — Type Check",
+      "type": "shell",
+      "command": "npm run type-check",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": ["$tsc"],
+      "icon": {
+        "id": "check",
+        "color": "terminal.ansiCyan"
+      }
+    }
+  ]
+}

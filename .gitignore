@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+release/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor & IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Native module build artifacts
+build/
+prebuilds/
+
+# Electron packaged output
+*.exe
+*.dmg
+*.AppImage
+*.snap
+*.deb
+*.rpm
