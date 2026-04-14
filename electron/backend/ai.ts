@@ -439,3 +439,58 @@ aiRouter.get('/models', (_req: Request, res: Response) => {
     ],
   })
 })
+
+// ─── Inline Completion Route ──────────────────────────────────────────────────
+
+aiRouter.post('/complete', async (req: Request, res: Response) => {
+  const { prefix, suffix, language, model, apiKey, provider } = req.body
+
+  if (!prefix || !model) {
+    res.status(400).json({ error: 'prefix and model are required' })
+    return
+  }
+
+  const systemPrompt = `You are an expert code completion engine. Continue the code naturally. Only output the completion text — no explanations, no markdown, no code fences. The code is in ${language || 'unknown'} language.`
+
+  const userContent = suffix
+    ? `Complete the code between the cursor position.\n\nCode before cursor:\n\`\`\`\n${prefix.slice(-1500)}\n\`\`\`\n\nCode after cursor:\n\`\`\`\n${suffix.slice(0, 500)}\n\`\`\`\n\nOnly output the completion (1-3 lines max).`
+    : `Continue this code naturally:\n\`\`\`\n${prefix.slice(-1500)}\n\`\`\`\n\nOnly output the next 1-3 lines of code.`
+
+  try {
+    if (provider === 'anthropic') {
+      if (!apiKey) { res.status(400).json({ error: 'API key required' }); return }
+      const client = new Anthropic({ apiKey })
+      const response = await client.messages.create({
+        model,
+        max_tokens: 256,
+        temperature: 0.2,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }],
+      })
+      const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+      res.json({ completion: text.trim() })
+    } else {
+      const baseURL =
+        provider === 'groq' ? 'https://api.groq.com/openai/v1' :
+        provider === 'ollama' ? 'http://localhost:11434/v1' :
+        undefined
+      if (!apiKey && provider !== 'ollama') { res.status(400).json({ error: 'API key required' }); return }
+      const client = new OpenAI({
+        apiKey: apiKey || 'ollama',
+        ...(baseURL ? { baseURL } : {}),
+      })
+      const response = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.2,
+        max_tokens: 256,
+      })
+      res.json({ completion: response.choices[0]?.message?.content?.trim() ?? '' })
+    }
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message })
+  }
+})

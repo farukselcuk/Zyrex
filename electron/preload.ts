@@ -38,6 +38,20 @@ export interface NexusAPI {
   search: {
     inFiles: (rootDir: string, query: string) => Promise<Array<{ file: string; line: number; text: string }>>
   }
+  git: {
+    status: (cwd: string) => Promise<{ branch: string; files: Array<{ status: string; path: string }>; error: string | null }>
+    diff: (cwd: string, filePath?: string) => Promise<string>
+    diffStaged: (cwd: string, filePath?: string) => Promise<string>
+    stage: (cwd: string, filePaths: string[]) => Promise<{ success: boolean; error?: string }>
+    unstage: (cwd: string, filePaths: string[]) => Promise<{ success: boolean; error?: string }>
+    commit: (cwd: string, message: string) => Promise<{ success: boolean; output?: string; error?: string }>
+    log: (cwd: string, maxCount?: number) => Promise<Array<{ hash: string; author: string; email: string; timestamp: number; message: string }>>
+    branches: (cwd: string) => Promise<Array<{ name: string; current: boolean }>>
+    checkout: (cwd: string, branch: string) => Promise<{ success: boolean; error?: string }>
+    push: (cwd: string) => Promise<{ success: boolean; output?: string; error?: string }>
+    pull: (cwd: string) => Promise<{ success: boolean; output?: string; error?: string }>
+    discard: (cwd: string, filePath: string) => Promise<{ success: boolean; error?: string }>
+  }
   on: (channel: string, callback: (...args: unknown[]) => void) => void
   off: (channel: string, callback: (...args: unknown[]) => void) => void
 }
@@ -76,6 +90,20 @@ const nexusAPI: NexusAPI = {
   },
   search: {
     inFiles: (rootDir, query) => ipcRenderer.invoke('search:inFiles', rootDir, query),
+  },
+  git: {
+    status: (cwd: string) => ipcRenderer.invoke('git:status', cwd),
+    diff: (cwd: string, filePath?: string) => ipcRenderer.invoke('git:diff', cwd, filePath),
+    diffStaged: (cwd: string, filePath?: string) => ipcRenderer.invoke('git:diffStaged', cwd, filePath),
+    stage: (cwd: string, filePaths: string[]) => ipcRenderer.invoke('git:stage', cwd, filePaths),
+    unstage: (cwd: string, filePaths: string[]) => ipcRenderer.invoke('git:unstage', cwd, filePaths),
+    commit: (cwd: string, message: string) => ipcRenderer.invoke('git:commit', cwd, message),
+    log: (cwd: string, maxCount?: number) => ipcRenderer.invoke('git:log', cwd, maxCount),
+    branches: (cwd: string) => ipcRenderer.invoke('git:branches', cwd),
+    checkout: (cwd: string, branch: string) => ipcRenderer.invoke('git:checkout', cwd, branch),
+    push: (cwd: string) => ipcRenderer.invoke('git:push', cwd),
+    pull: (cwd: string) => ipcRenderer.invoke('git:pull', cwd),
+    discard: (cwd: string, filePath: string) => ipcRenderer.invoke('git:discard', cwd, filePath),
   },
   // Safe event listener — only whitelisted channels
   on: (channel, callback) => {

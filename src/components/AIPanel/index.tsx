@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { useAIStore, useEditorStore } from '../../store'
+import { useAIStore, useEditorStore, useAppStore } from '../../store'
 import ModelSelector from '../ModelSelector'
 import type { ChatMessage } from '../../types'
 
@@ -73,8 +73,10 @@ export default function AIPanel({ backendPort }: { backendPort: number }) {
     getActiveConversation,
   } = useAIStore()
   const { getActiveTab } = useEditorStore()
+  const projectPath = useAppStore((s) => s.projectPath)
 
   const [input, setInput] = useState('')
+  const [ragIndexed, setRagIndexed] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -107,6 +109,16 @@ export default function AIPanel({ backendPort }: { backendPort: number }) {
     if (!activeConversationId) newConversation()
   }, [activeConversationId, newConversation])
 
+  // Auto-index project with RAG engine
+  useEffect(() => {
+    if (!projectPath || !backendPort || ragIndexed) return
+    fetch(`http://127.0.0.1:${backendPort}/api/rag/index`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectPath }),
+    }).then(() => setRagIndexed(true)).catch(() => {})
+  }, [projectPath, backendPort, ragIndexed])
+
   // Auto-resize textarea
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
@@ -136,6 +148,28 @@ export default function AIPanel({ backendPort }: { backendPort: number }) {
       if (activeTab?.content) {
         userContent = `[Context — ${activeTab.name}]\n\`\`\`${activeTab.language}\n${activeTab.content.slice(0, 6000)}\n\`\`\`\n\n${text}`
       }
+    }
+
+    // Enrich with RAG context (relevant code chunks from project)
+    if (ragIndexed && backendPort) {
+      try {
+        const ragRes = await fetch(`http://127.0.0.1:${backendPort}/api/rag/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: text, topK: 5 }),
+        })
+        if (ragRes.ok) {
+          const ragData = await ragRes.json()
+          if (ragData.results?.length > 0) {
+            const ragContext = ragData.results
+              .map((r: { filePath: string; startLine: number; content: string }) =>
+                `[${r.filePath}:${r.startLine}]\n${r.content}`
+              )
+              .join('\n\n---\n\n')
+            userContent = `[Relevant codebase context]\n${ragContext}\n\n---\n\n${userContent}`
+          }
+        }
+      } catch { /* RAG query failed, continue without it */ }
     }
 
     addMessage(convId, { role: 'user', content: text })
@@ -209,6 +243,7 @@ export default function AIPanel({ backendPort }: { backendPort: number }) {
     aiSettings,
     backendPort,
     conversation,
+    ragIndexed,
     newConversation,
     addMessage,
     updateLastMessage,

@@ -3,6 +3,8 @@ import { useAppStore, useEditorStore } from './store'
 import TitleBar from './components/TitleBar'
 import FileTree from './components/FileTree'
 import SearchPanel from './components/SearchPanel'
+import GitPanel from './components/GitPanel'
+import DebugPanel from './components/DebugPanel'
 import EditorArea from './components/Editor/EditorArea'
 import TerminalPanel from './components/Terminal'
 import AIPanel from './components/AIPanel'
@@ -11,7 +13,7 @@ import StatusBar from './components/StatusBar'
 export default function App() {
   const { isAIPanelOpen, isFileTreeOpen, backendPort, setBackendPort } = useAppStore()
   const [isTerminalOpen, setTerminalOpen] = useState(false)
-  const [sidePanel, setSidePanel] = useState<'files' | 'search'>('files')
+  const [sidePanel, setSidePanel] = useState<'files' | 'search' | 'git' | 'debug'>('files')
 
   // Receive backend port from main process via IPC
   useEffect(() => {
@@ -115,6 +117,32 @@ export default function App() {
             }}
             title="Search (Ctrl+Shift+F)"
           />
+          <ActivityBarIcon
+            icon="git"
+            active={isFileTreeOpen && sidePanel === 'git'}
+            onClick={() => {
+              if (sidePanel === 'git' && isFileTreeOpen) {
+                useAppStore.getState().toggleFileTree()
+              } else {
+                setSidePanel('git')
+                if (!isFileTreeOpen) useAppStore.getState().toggleFileTree()
+              }
+            }}
+            title="Source Control"
+          />
+          <ActivityBarIcon
+            icon="debug"
+            active={isFileTreeOpen && sidePanel === 'debug'}
+            onClick={() => {
+              if (sidePanel === 'debug' && isFileTreeOpen) {
+                useAppStore.getState().toggleFileTree()
+              } else {
+                setSidePanel('debug')
+                if (!isFileTreeOpen) useAppStore.getState().toggleFileTree()
+              }
+            }}
+            title="Debug"
+          />
           <div className="flex-1" />
           <ActivityBarIcon
             icon="terminal"
@@ -136,7 +164,7 @@ export default function App() {
             isFileTreeOpen ? '' : 'hidden'
           }`}
         >
-          {sidePanel === 'files' ? <FileTree /> : <SearchPanel />}
+          {sidePanel === 'files' ? <FileTree /> : sidePanel === 'search' ? <SearchPanel /> : sidePanel === 'git' ? <GitPanel /> : <DebugPanel />}
         </aside>
 
         {/* Center + Bottom Layout */}
@@ -176,7 +204,7 @@ function ActivityBarIcon({
   onClick,
   title,
 }: {
-  icon: 'files' | 'search' | 'terminal' | 'ai'
+  icon: 'files' | 'search' | 'git' | 'debug' | 'terminal' | 'ai'
   active: boolean
   onClick: () => void
   title: string
@@ -198,6 +226,22 @@ function ActivityBarIcon({
         <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <circle cx="7" cy="7" r="4.5" />
           <path d="M10.5 10.5L14 14" strokeLinecap="round" />
+        </svg>
+      )}
+      {icon === 'git' && (
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="3.5" r="1.5" />
+          <circle cx="8" cy="12.5" r="1.5" />
+          <circle cx="12" cy="8" r="1.5" />
+          <path d="M8 5v2.5a2.5 2.5 0 002.5 2.5H10.5" strokeLinecap="round"/>
+          <path d="M8 8v3" strokeLinecap="round"/>
+        </svg>
+      )}
+      {icon === 'debug' && (
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="9" r="4"/>
+          <path d="M8 5V2M4.5 7L2 5.5M11.5 7L14 5.5M4.5 11L2 12.5M11.5 11L14 12.5M8 13v2" strokeLinecap="round"/>
+          <path d="M6 9h4" strokeLinecap="round"/>
         </svg>
       )}
       {icon === 'terminal' && (

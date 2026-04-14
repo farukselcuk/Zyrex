@@ -232,6 +232,144 @@ function registerIpcHandlers(): void {
       return []
     }
   })
+
+  // ── Git ─────────────────────────────────────────────────────────────────────
+
+  function runGit(args: string, cwd: string): string {
+    return execSync(`git ${args}`, { encoding: 'utf-8', cwd, maxBuffer: 5 * 1024 * 1024, timeout: 30000 }).trim()
+  }
+
+  ipcMain.handle('git:status', async (_event, cwd: string) => {
+    try {
+      const porcelain = runGit('status --porcelain', cwd)
+      const branch = runGit('rev-parse --abbrev-ref HEAD', cwd)
+      const files = porcelain
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => ({
+          status: line.substring(0, 2).trim(),
+          path: line.substring(3),
+        }))
+      return { branch, files, error: null }
+    } catch (err: unknown) {
+      return { branch: '', files: [], error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('git:diff', async (_event, cwd: string, filePath?: string) => {
+    try {
+      const args = filePath ? `diff -- "${filePath}"` : 'diff'
+      return runGit(args, cwd)
+    } catch {
+      return ''
+    }
+  })
+
+  ipcMain.handle('git:diffStaged', async (_event, cwd: string, filePath?: string) => {
+    try {
+      const args = filePath ? `diff --cached -- "${filePath}"` : 'diff --cached'
+      return runGit(args, cwd)
+    } catch {
+      return ''
+    }
+  })
+
+  ipcMain.handle('git:stage', async (_event, cwd: string, filePaths: string[]) => {
+    try {
+      const escaped = filePaths.map((f) => `"${f}"`).join(' ')
+      runGit(`add ${escaped}`, cwd)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('git:unstage', async (_event, cwd: string, filePaths: string[]) => {
+    try {
+      const escaped = filePaths.map((f) => `"${f}"`).join(' ')
+      runGit(`reset HEAD ${escaped}`, cwd)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('git:commit', async (_event, cwd: string, message: string) => {
+    try {
+      const safeMsg = message.replace(/"/g, '\\"')
+      const output = runGit(`commit -m "${safeMsg}"`, cwd)
+      return { success: true, output }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('git:log', async (_event, cwd: string, maxCount: number = 50) => {
+    try {
+      const format = '--pretty=format:%H||%an||%ae||%at||%s'
+      const output = runGit(`log ${format} -n ${maxCount}`, cwd)
+      return output
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const [hash, author, email, timestamp, message] = line.split('||')
+          return { hash, author, email, timestamp: parseInt(timestamp) * 1000, message }
+        })
+    } catch {
+      return []
+    }
+  })
+
+  ipcMain.handle('git:branches', async (_event, cwd: string) => {
+    try {
+      const output = runGit('branch -a', cwd)
+      return output
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => ({
+          name: line.replace(/^\*?\s+/, '').trim(),
+          current: line.startsWith('*'),
+        }))
+    } catch {
+      return []
+    }
+  })
+
+  ipcMain.handle('git:checkout', async (_event, cwd: string, branch: string) => {
+    try {
+      runGit(`checkout "${branch.replace(/"/g, '')}"`, cwd)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('git:push', async (_event, cwd: string) => {
+    try {
+      const output = runGit('push', cwd)
+      return { success: true, output }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('git:pull', async (_event, cwd: string) => {
+    try {
+      const output = runGit('pull', cwd)
+      return { success: true, output }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('git:discard', async (_event, cwd: string, filePath: string) => {
+    try {
+      runGit(`checkout -- "${filePath}"`, cwd)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
 }
 
 // ─── App Lifecycle ─────────────────────────────────────────────────────────────

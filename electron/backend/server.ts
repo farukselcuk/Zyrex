@@ -2,6 +2,7 @@ import express, { type Application } from 'express'
 import cors from 'cors'
 import { createServer, type Server } from 'http'
 import { aiRouter } from './ai'
+import { ragRouter } from './rag'
 
 let httpServer: Server | null = null
 
@@ -25,6 +26,9 @@ export async function startBackendServer(port = 3001): Promise<number> {
 
   // ── AI Routes ──────────────────────────────────────────────────────────────
   app.use('/api/ai', aiRouter)
+
+  // ── RAG Routes ─────────────────────────────────────────────────────────────
+  app.use('/api/rag', ragRouter)
 
   // ── Settings Routes (Phase 5) ───────────────────────────────────────────────
   // app.use('/api/settings', dbRouter)

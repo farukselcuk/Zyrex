@@ -3,10 +3,88 @@ import MonacoEditor, { type OnMount, type BeforeMount } from '@monaco-editor/rea
 import * as monacoNS from 'monaco-editor'
 import { useEditorStore, useEditorSettings } from '../../store'
 import { editorRefStore } from '../../store/editorRef'
+import { registerInlineCompletions } from './inlineCompletions'
 
 // ─── Per-tab model cache ──────────────────────────────────────────────────────
 // Keeps one Monaco ITextModel per tab so switching tabs is instant (no remount)
 const modelCache = new Map<string, monacoNS.editor.ITextModel>()
+let snippetsRegistered = false
+
+function registerSnippets(monaco: typeof monacoNS): void {
+  if (snippetsRegistered) return
+  snippetsRegistered = true
+
+  const snippetsByLang: Record<string, Array<{label: string; insertText: string; detail: string}>> = {
+    typescript: [
+      { label: 'func', insertText: 'function ${1:name}(${2:params}): ${3:void} {\n\t$0\n}', detail: 'Function declaration' },
+      { label: 'afunc', insertText: 'async function ${1:name}(${2:params}): Promise<${3:void}> {\n\t$0\n}', detail: 'Async function' },
+      { label: 'iface', insertText: 'interface ${1:Name} {\n\t${2:prop}: ${3:type}\n}', detail: 'Interface' },
+      { label: 'clazz', insertText: 'class ${1:Name} {\n\tconstructor(${2:params}) {\n\t\t$0\n\t}\n}', detail: 'Class' },
+      { label: 'elog', insertText: 'console.log(${1:\'$2\'})', detail: 'console.log' },
+      { label: 'trycatch', insertText: 'try {\n\t$1\n} catch (error) {\n\t$0\n}', detail: 'Try-catch block' },
+      { label: 'imp', insertText: 'import { ${2:module} } from \'${1:package}\'', detail: 'Import statement' },
+    ],
+    typescriptreact: [
+      { label: 'rfc', insertText: 'export default function ${1:Component}() {\n\treturn (\n\t\t<div>\n\t\t\t$0\n\t\t</div>\n\t)\n}', detail: 'React FC' },
+      { label: 'usestate', insertText: 'const [${1:state}, set${1/(.*)/${1:/capitalize}/}] = useState(${2:initial})', detail: 'useState hook' },
+      { label: 'useeffect', insertText: 'useEffect(() => {\n\t$1\n\treturn () => {\n\t\t$2\n\t}\n}, [${3:deps}])', detail: 'useEffect hook' },
+      { label: 'usememo', insertText: 'const ${1:value} = useMemo(() => {\n\treturn $2\n}, [${3:deps}])', detail: 'useMemo hook' },
+      { label: 'usecb', insertText: 'const ${1:handler} = useCallback(($2) => {\n\t$0\n}, [${3:deps}])', detail: 'useCallback hook' },
+    ],
+    javascript: [
+      { label: 'func', insertText: 'function ${1:name}(${2:params}) {\n\t$0\n}', detail: 'Function declaration' },
+      { label: 'afunc', insertText: 'async function ${1:name}(${2:params}) {\n\t$0\n}', detail: 'Async function' },
+      { label: 'elog', insertText: 'console.log(${1:\'$2\'})', detail: 'console.log' },
+      { label: 'trycatch', insertText: 'try {\n\t$1\n} catch (error) {\n\t$0\n}', detail: 'Try-catch block' },
+      { label: 'forof', insertText: 'for (const ${1:item} of ${2:iterable}) {\n\t$0\n}', detail: 'for...of loop' },
+    ],
+    python: [
+      { label: 'def', insertText: 'def ${1:name}(${2:params}):\n\t${0:pass}', detail: 'Function' },
+      { label: 'adef', insertText: 'async def ${1:name}(${2:params}):\n\t${0:pass}', detail: 'Async function' },
+      { label: 'cls', insertText: 'class ${1:Name}:\n\tdef __init__(self${2:, params}):\n\t\t${0:pass}', detail: 'Class' },
+      { label: 'ifmain', insertText: 'if __name__ == \'__main__\':\n\t${0:main()}', detail: 'if __name__ == __main__' },
+      { label: 'trycatch', insertText: 'try:\n\t$1\nexcept ${2:Exception} as e:\n\t$0', detail: 'Try-except block' },
+    ],
+    html: [
+      { label: 'html5', insertText: '<!DOCTYPE html>\n<html lang="${1:en}">\n<head>\n\t<meta charset="UTF-8">\n\t<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\t<title>${2:Document}</title>\n</head>\n<body>\n\t$0\n</body>\n</html>', detail: 'HTML5 boilerplate' },
+      { label: 'link', insertText: '<link rel="stylesheet" href="${1:style.css}">', detail: 'CSS link' },
+      { label: 'script', insertText: '<script src="${1:script.js}"></script>', detail: 'Script tag' },
+    ],
+    css: [
+      { label: 'flex-center', insertText: 'display: flex;\njustify-content: center;\nalign-items: center;', detail: 'Flexbox center' },
+      { label: 'grid', insertText: 'display: grid;\ngrid-template-columns: ${1:repeat(3, 1fr)};\ngap: ${2:1rem};', detail: 'CSS Grid' },
+      { label: 'media', insertText: '@media (max-width: ${1:768px}) {\n\t$0\n}', detail: 'Media query' },
+    ],
+  }
+
+  // Also share TS snippets with TSX and JS with JSX
+  snippetsByLang.javascriptreact = [...(snippetsByLang.javascript ?? []), ...(snippetsByLang.typescriptreact ?? [])]
+  snippetsByLang.typescriptreact = [...(snippetsByLang.typescript ?? []), ...(snippetsByLang.typescriptreact ?? [])]
+
+  for (const [lang, snippets] of Object.entries(snippetsByLang)) {
+    monaco.languages.registerCompletionItemProvider(lang, {
+      provideCompletionItems(model, position) {
+        const word = model.getWordUntilPosition(position)
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        }
+        return {
+          suggestions: snippets.map((s) => ({
+            label: s.label,
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: s.insertText,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: s.detail,
+            range,
+          })),
+        }
+      },
+    })
+  }
+}
 
 function getOrCreateModel(
   tabId: string,
@@ -157,6 +235,12 @@ export default function MonacoWrapper() {
       monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF,
       () => { editor.getAction('editor.action.formatDocument')?.run() },
     )
+
+    // ── Register Code Snippets ───────────────────────────────────────────────
+    registerSnippets(monaco)
+
+    // ── Register AI Inline Completions (ghost text) ──────────────────────────
+    registerInlineCompletions(monaco)
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -178,6 +262,7 @@ export default function MonacoWrapper() {
           fontLigatures: true,
           tabSize: settings.tabSize,
           lineNumbers: settings.lineNumbers ? 'on' : 'off',
+          glyphMargin: true,
           minimap: { enabled: settings.minimap },
           wordWrap: settings.wordWrap ? 'on' : 'off',
           scrollBeyondLastLine: false,
@@ -193,6 +278,13 @@ export default function MonacoWrapper() {
           smoothScrolling: true,
           cursorBlinking: 'smooth',
           cursorSmoothCaretAnimation: 'on',
+          // Multi-cursor
+          multiCursorModifier: 'alt',
+          multiCursorMergeOverlapping: true,
+          // Snippets
+          snippetSuggestions: 'top',
+          // Inline completions (ghost text)
+          inlineSuggest: { enabled: true },
         }}
         className="monaco-container"
       />

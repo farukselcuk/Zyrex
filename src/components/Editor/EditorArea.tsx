@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import TabBar from './TabBar'
+import Breadcrumb from './Breadcrumb'
 import MonacoWrapper from './MonacoWrapper'
 import { editorRefStore } from '../../store/editorRef'
 
@@ -119,6 +120,7 @@ export default function EditorArea() {
       <div data-tab-bar="">
         <TabBar />
       </div>
+      <Breadcrumb />
       <MonacoWrapper />
       {menu && (
         <ContextMenu

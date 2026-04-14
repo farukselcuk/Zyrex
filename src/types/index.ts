@@ -158,6 +158,20 @@ export interface NexusAPI {
   search: {
     inFiles: (rootDir: string, query: string) => Promise<Array<{ file: string; line: number; text: string }>>
   }
+  git: {
+    status: (cwd: string) => Promise<{ branch: string; files: Array<{ status: string; path: string }>; error: string | null }>
+    diff: (cwd: string, filePath?: string) => Promise<string>
+    diffStaged: (cwd: string, filePath?: string) => Promise<string>
+    stage: (cwd: string, filePaths: string[]) => Promise<{ success: boolean; error?: string }>
+    unstage: (cwd: string, filePaths: string[]) => Promise<{ success: boolean; error?: string }>
+    commit: (cwd: string, message: string) => Promise<{ success: boolean; output?: string; error?: string }>
+    log: (cwd: string, maxCount?: number) => Promise<Array<{ hash: string; author: string; email: string; timestamp: number; message: string }>>
+    branches: (cwd: string) => Promise<Array<{ name: string; current: boolean }>>
+    checkout: (cwd: string, branch: string) => Promise<{ success: boolean; error?: string }>
+    push: (cwd: string) => Promise<{ success: boolean; output?: string; error?: string }>
+    pull: (cwd: string) => Promise<{ success: boolean; output?: string; error?: string }>
+    discard: (cwd: string, filePath: string) => Promise<{ success: boolean; error?: string }>
+  }
   on: (channel: string, callback: (...args: unknown[]) => void) => void
   off: (channel: string, callback: (...args: unknown[]) => void) => void
 }

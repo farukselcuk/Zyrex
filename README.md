@@ -10,7 +10,7 @@
 
 **AI-Powered Desktop IDE — Built from Scratch**
 
-*Monaco Editor • Multi-LLM Chat • Agentic AI Tools • Integrated Terminal*
+*Monaco Editor • Multi-LLM Chat • Agentic AI Tools • Git • Debug • RAG • Integrated Terminal*
 
 </div>
 
@@ -58,9 +58,44 @@
 - **AI tuning** — Temperature, max tokens, system prompt customization
 - **Editor settings** — Font size, tab size, line numbers, minimap, word wrap
 
+### 🔀 Git Integration
+- **Source Control panel** — View changed/staged/unstaged files
+- **Stage & Unstage** — Individual file staging with one-click actions
+- **Commit** — Commit message input with `Ctrl+Enter` shortcut
+- **Push / Pull** — Sync with remote directly from the panel
+- **Discard changes** — Revert uncommitted file changes
+- **History** — Git log with commit hash, author, and relative time
+- **Branch management** — View and switch branches
+
+### 🐛 Debug Integration
+- **Breakpoint gutter** — Click the glyph margin to toggle breakpoints
+- **Visual breakpoint decorations** — Red dot + highlighted line in editor
+- **Debug panel** — Breakpoints list, variables, call stack, debug console
+- **Start/Stop** — Launch Node.js (`--inspect-brk`) or Python (`pdb`) debug sessions
+
+### 🧠 RAG Context Engine
+- **TF-IDF indexing** — Automatic codebase indexing on project open
+- **Context enrichment** — AI chat queries are enriched with relevant code snippets
+- **Chunked analysis** — Files split into overlapping 50-line chunks for precise retrieval
+- **Lightweight** — No external vector DB needed; runs in-process
+
+### ✨ Inline AI Completions
+- **Ghost text suggestions** — AI-powered code completions appear as you type
+- **750ms debounce** — Intelligent trigger to avoid excessive API calls
+- **Multi-provider** — Works with any configured LLM (OpenAI, Anthropic, etc.)
+- **Context-aware** — Sends prefix, suffix, and language for accurate completions
+
+### 📝 Snippets & Multi-Cursor
+- **Built-in snippets** — Language-specific (React: `rfc`, `usestate`, `useeffect`; Python: `def`, `class`, `ifmain`; HTML/CSS)
+- **Multi-cursor editing** — `Alt+Click` for multiple cursors
+- **Snippet suggestions** — Snippets prioritized at top of autocomplete
+
+### 🧭 Breadcrumb Navigation
+- **File path breadcrumb** — Shows current file path as clickable segments above the editor
+
 ### 🎨 UI/UX
 - **Pure black/charcoal theme** — Custom dark theme (#0f0f0f base)
-- **Activity bar** — VS Code-style icon strip (Explorer, Search, Terminal, AI)
+- **Activity bar** — VS Code-style icon strip (Explorer, Search, Git, Debug, Terminal, AI)
 - **Resizable panels** — File tree, AI chat, terminal
 - **Status bar** — Language, encoding, unsaved indicator, settings access
 
@@ -74,19 +109,22 @@
 │  ┌──────────┐  ┌──────────┐  ┌────────────────────────┐│
 │  │  IPC      │  │ node-pty │  │   Express Backend      ││
 │  │ Handlers  │  │ Terminal │  │  ┌──────────────────┐  ││
-│  │ (fs, app) │  │  Spawner │  │  │  /api/ai/chat    │  ││
-│  └──────────┘  └──────────┘  │  │  /api/ai/agent   │  ││
+│  │(fs,app,  │  │  Spawner │  │  │  /api/ai/chat    │  ││
+│  │ git)     │  └──────────┘  │  │  /api/ai/agent   │  ││
+│  └──────────┘                │  │  /api/ai/complete │  ││
 │                               │  │  /api/ai/models  │  ││
+│                               │  │  /api/rag/*      │  ││
 │                               │  └──────────────────┘  ││
 │                               └────────────────────────┘│
 ├─────────────────────────────────────────────────────────┤
 │                   Preload (contextBridge)                │
-│              window.nexusAPI (fs, app, terminal, search) │
+│         window.nexusAPI (fs, app, terminal, git, search) │
 ├─────────────────────────────────────────────────────────┤
 │                    Renderer (React 18)                   │
 │  ┌──────┐ ┌──────────┐ ┌────────┐ ┌──────┐ ┌────────┐ │
-│  │Activity│ │ File Tree│ │ Monaco │ │ AI   │ │Terminal│ │
-│  │ Bar   │ │ /Search  │ │ Editor │ │ Panel│ │ Panel  │ │
+│  │Active│ │FileTree/ │ │ Monaco │ │ AI   │ │Terminal│ │
+│  │ Bar  │ │Search/   │ │ Editor │ │ Panel│ │ Panel  │ │
+│  │      │ │Git/Debug │ │+Inline │ │ +RAG │ │        │ │
 │  └──────┘ └──────────┘ └────────┘ └──────┘ └────────┘ │
 │                    Zustand State Management              │
 └─────────────────────────────────────────────────────────┘
@@ -170,7 +208,8 @@ Zyrex/
 │   ├── main.ts              # Electron main process, IPC handlers
 │   ├── preload.ts           # contextBridge (nexusAPI)
 │   └── backend/
-│       ├── ai.ts            # AI routes (chat, agent, models)
+│       ├── ai.ts            # AI routes (chat, agent, complete, models)
+│       ├── rag.ts           # TF-IDF RAG context engine
 │       ├── db.ts            # SQLite layer (planned)
 │       └── server.ts        # Express server
 ├── src/
@@ -184,10 +223,14 @@ Zyrex/
 │   │   ├── AIPanel/         # AI chat with streaming
 │   │   ├── Editor/
 │   │   │   ├── EditorArea.tsx
-│   │   │   ├── MonacoWrapper.tsx  # Model-cached editor
+│   │   │   ├── MonacoWrapper.tsx  # Model-cached editor + snippets
 │   │   │   ├── TabBar.tsx
-│   │   │   └── DiffView.tsx      # Monaco diff editor
+│   │   │   ├── Breadcrumb.tsx     # Path breadcrumb navigation
+│   │   │   ├── DiffView.tsx      # Monaco diff editor
+│   │   │   └── inlineCompletions.ts  # AI ghost text provider
 │   │   ├── FileTree/        # File explorer with drag-drop
+│   │   ├── GitPanel/        # Git source control
+│   │   ├── DebugPanel/      # Debug with breakpoints
 │   │   ├── ModelSelector/   # LLM model picker
 │   │   ├── SearchPanel/     # Project-wide search
 │   │   ├── Settings/        # API keys & AI config
@@ -215,11 +258,14 @@ Zyrex/
 - [x] Diff view for AI changes
 - [x] Project-wide search
 - [x] Settings panel for API keys
-- [ ] RAG Context Engine — Vector DB indexing of codebase
+- [x] Git integration (status, stage, commit, push, pull, branches, log)
+- [x] Inline AI completions (ghost text)
+- [x] RAG Context Engine — TF-IDF codebase indexing
+- [x] Breadcrumb navigation
+- [x] Multi-cursor & built-in snippets
+- [x] Debug integration (breakpoints, variables, call stack)
 - [ ] Tree-sitter AST analysis
 - [ ] LSP integration for external language servers
-- [ ] Git integration (status, commit, push, pull)
-- [ ] Inline AI completions (ghost text)
 - [ ] Plugin/extension system
 - [ ] Collaborative editing
 
